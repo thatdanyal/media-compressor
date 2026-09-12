@@ -20,7 +20,13 @@ Grab the latest installer from the [Releases page](https://github.com/thatdanyal
 
 ## Features
 
-- **Target file size** in KB or MB, with quick presets (8 MB for Discord, 25 MB for email, …)
+Two modes:
+
+- **Target size** — type a size in KB or MB (or pick a preset: 8 MB for Discord, 25 MB for email, …) and the output lands just under it. Fast.
+- **Max Squeeze** — the smallest file that still looks good, using up to **10 minutes per video** (pictures take seconds). It never runs longer than that: encodes project their own finish time and fall back to faster settings if they'd overrun. Output is H.265 MP4 / WebP.
+
+Plus:
+
 - **Video** — MP4, MOV, MKV, WebM, AVI and more → H.264 MP4 (or H.265). Two-pass encoding hits the target on the first try; automatically downscales resolution when the budget is too small for the source size.
 - **Pictures** — JPG, PNG, WebP, HEIC, AVIF and more → JPEG or WebP. Binary-searches quality, then shrinks dimensions if needed. Strips EXIF/location metadata by default.
 - Batch queue with per-file progress, cancel, retry and "show in folder"
@@ -33,12 +39,17 @@ Grab the latest installer from the [Releases page](https://github.com/thatdanyal
 
 **Image:** the image is decoded once, then re-encoded in a binary search over quality 5–95 for the highest quality that fits. If even low quality overshoots, the image is scaled down 15% and the search repeats — fewer pixels at good quality beats a blocky full-size image.
 
+## How Max Squeeze uses its 10 minutes
+
+Video is capped at 1080p and encoded with H.265 at CRF 30 (about 40% smaller than H.264 at similar quality, but ~3× slower). Once the encode has run for a few seconds it projects its finish time; if that overruns the budget it's killed and the video is re-encoded with fast H.264 instead, and as a last resort at 720p. Slower presets and AV1 were benchmarked and dropped — they weren't smaller for the time spent. Pictures become WebP at quality 75 with maximum encoder effort, capped at 2048 px.
+
 ## Development
 
 ```bash
 npm install
 npm run dev          # launch with hot reload
 npm run try -- path/to/file.mp4 8MB   # exercise the engine without the UI
+npm run try -- path/to/file.mp4 squeeze:2   # Max Squeeze with a 2-minute budget
 npm run build:win    # local installer -> dist/
 ```
 

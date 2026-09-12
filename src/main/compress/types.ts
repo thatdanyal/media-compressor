@@ -3,9 +3,15 @@ export type MediaKind = 'video' | 'image'
 export type ImageFormat = 'jpeg' | 'webp' | 'png'
 export type VideoCodec = 'h264' | 'h265'
 
+export type Mode = 'target' | 'squeeze'
+
 export interface CompressOptions {
-  /** Desired maximum output size in bytes. */
-  targetBytes: number
+  /** 'target' hits a requested size; 'squeeze' makes the smallest good-looking file it can within a time budget. */
+  mode?: Mode
+  /** Desired maximum output size in bytes (target mode). */
+  targetBytes?: number
+  /** Squeeze mode: wall-clock budget per file. Defaults to 10 minutes. */
+  timeBudgetMs?: number
   /** Directory to write into. Defaults to the source file's directory. */
   outputDir?: string
   /** Images only. */

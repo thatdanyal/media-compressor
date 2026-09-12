@@ -3,7 +3,7 @@ import { fmtBytes } from '../lib'
 
 interface Props {
   job: Job
-  targetBytes: number
+  targetBytes: number | null
   onCancel: () => void
   onRemove: () => void
   onRetry: () => void
@@ -20,7 +20,7 @@ export function FileRow({
 }: Props): React.JSX.Element {
   const { file, status } = job
   const pct = Math.round(job.fraction * 100)
-  const alreadySmall = status === 'queued' && file.bytes <= targetBytes
+  const alreadySmall = status === 'queued' && targetBytes !== null && file.bytes <= targetBytes
 
   return (
     <div className={`file status-${status}`}>
@@ -39,7 +39,9 @@ export function FileRow({
                 {' '}
                 (−{Math.round((1 - job.outputBytes / file.bytes) * 100)}%)
               </span>
-              {job.outputBytes > targetBytes && <span className="warn"> over target</span>}
+              {targetBytes !== null && job.outputBytes > targetBytes && (
+                <span className="warn"> over target</span>
+              )}
               {job.notes && job.notes.length > 0 && (
                 <span className="notes"> · {job.notes.join(' · ')}</span>
               )}

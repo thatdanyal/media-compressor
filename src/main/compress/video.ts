@@ -108,10 +108,12 @@ export async function compressVideo(
   onProgress: ProgressFn,
   cancel: CancelToken
 ): Promise<CompressResult> {
+  const targetBytes = opts.targetBytes
+  if (!targetBytes) throw new Error('targetBytes is required in target mode')
   const info = await probe(input)
   cancel.throwIfCancelled()
   const inputBytes = (await stat(input)).size
-  const plan = planVideo(info, opts.targetBytes)
+  const plan = planVideo(info, targetBytes)
   const notes = [...plan.notes]
 
   const outDir = opts.outputDir ?? path.dirname(input)
@@ -164,13 +166,13 @@ export async function compressVideo(
         cancel
       )
       const outputBytes = (await stat(outputPath)).size
-      if (outputBytes <= opts.targetBytes || attempt === MAX_RETRIES) {
-        if (outputBytes > opts.targetBytes) notes.push('could not get under target; best effort')
+      if (outputBytes <= targetBytes || attempt === MAX_RETRIES) {
+        if (outputBytes > targetBytes) notes.push('could not get under target; best effort')
         onProgress(1, 'done')
         return { outputPath, inputBytes, outputBytes, notes }
       }
       // Overshot: shave the bitrate proportionally and go again.
-      const ratio = opts.targetBytes / outputBytes
+      const ratio = targetBytes / outputBytes
       videoKbps = Math.max(50, Math.floor(videoKbps * ratio * 0.97))
       notes.push(
         `overshot by ${((1 / ratio - 1) * 100).toFixed(1)}%, retrying at ${videoKbps} kbps`
@@ -227,15 +229,27 @@ function run(bin: string, args: string[]): Promise<string> {
   })
 }
 
-function runFfmpeg(
+/** Thrown when an encode is abandoned because it would not finish inside the time budget. */
+export class StageAbortedError extends Error {
+  constructor(public readonly reason: string) {
+    super(reason)
+    this.name = 'StageAbortedError'
+  }
+}
+
+export function runFfmpeg(
   args: string[],
   durationSec: number,
   onProgress: (fraction: number) => void,
-  cancel: CancelToken
+  cancel: CancelToken,
+  /** Return a reason string to kill the encode early (e.g. it is projected to miss a deadline). */
+  abortIf?: (fraction: number, elapsedMs: number) => string | null
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const p = spawn(ffmpegPath(), args, { windowsHide: true })
     cancel.onCancel(() => p.kill('SIGKILL'))
+    const started = Date.now()
+    let aborted: string | null = null
     let stderr = ''
     let buf = ''
     p.stdout.on('data', (d) => {
@@ -245,7 +259,13 @@ function runFfmpeg(
       for (const line of lines) {
         // ffmpeg emits out_time_us (newer) and out_time_ms (older, also microseconds)
         const m = /^out_time_us=(\d+)/.exec(line) ?? /^out_time_ms=(\d+)/.exec(line)
-        if (m) onProgress(Math.min(1, Number(m[1]) / 1e6 / durationSec))
+        if (!m) continue
+        const fraction = Math.min(1, Number(m[1]) / 1e6 / durationSec)
+        onProgress(fraction)
+        if (abortIf && !aborted) {
+          aborted = abortIf(fraction, Date.now() - started)
+          if (aborted) p.kill('SIGKILL')
+        }
       }
     })
     p.stderr.on('data', (d) => {
@@ -255,6 +275,7 @@ function runFfmpeg(
     p.on('error', reject)
     p.on('close', (code) => {
       if (cancel.cancelled) return reject(new CancelledError())
+      if (aborted) return reject(new StageAbortedError(aborted))
       if (code === 0) return resolve()
       const tail = stderr.trim().split('\n').slice(-6).join('\n')
       reject(new Error(`ffmpeg failed (exit ${code}):\n${tail}`))

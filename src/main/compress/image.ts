@@ -18,6 +18,8 @@ export async function compressImage(
   onProgress: ProgressFn,
   cancel: CancelToken
 ): Promise<CompressResult> {
+  const targetBytes = opts.targetBytes
+  if (!targetBytes) throw new Error('targetBytes is required in target mode')
   const inputBytes = (await stat(input)).size
   const notes: string[] = []
   const strip = opts.stripMetadata ?? true
@@ -65,7 +67,7 @@ export async function compressImage(
       cancel.throwIfCancelled()
       const mid = Math.floor((lo + hi) / 2)
       const buf = await encode(mid)
-      if (buf.length <= opts.targetBytes) {
+      if (buf.length <= targetBytes) {
         fit = { buf, quality: mid }
         lo = mid + 1
       } else {

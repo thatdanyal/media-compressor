@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CompressOptions, DoneEvent, FileInfo } from '../../preload/index'
+import type { CompressOptions, DoneEvent, FileInfo, Mode } from '../../preload/index'
+import { ModePicker } from './components/ModePicker'
 import { DropZone } from './components/DropZone'
 import { FileRow } from './components/FileRow'
 import { TargetSizeInput } from './components/TargetSizeInput'
@@ -25,6 +26,7 @@ type ImageFormatChoice = 'auto' | 'jpeg' | 'webp' | 'png'
 
 export default function App(): React.JSX.Element {
   const [jobs, setJobs] = useState<Job[]>([])
+  const [mode, setMode] = useState<Mode>('target')
   const [target, setTarget] = useState<{ value: number; unit: Unit }>({ value: 8, unit: 'MB' })
   const [outputDir, setOutputDir] = useState<string | null>(null)
   const [imageFormat, setImageFormat] = useState<ImageFormatChoice>('auto')
@@ -101,19 +103,23 @@ export default function App(): React.JSX.Element {
     const next = jobs.find((j) => j.status === 'queued')
     if (!next) return
     runningRef.current = true
-    const options: CompressOptions = {
-      targetBytes: toBytes(target.value, target.unit),
-      outputDir: outputDir ?? undefined,
-      imageFormat: imageFormat === 'auto' ? undefined : imageFormat,
-      stripMetadata,
-      videoCodec
-    }
+    const options: CompressOptions =
+      mode === 'squeeze'
+        ? { mode, outputDir: outputDir ?? undefined, stripMetadata }
+        : {
+            mode,
+            targetBytes: toBytes(target.value, target.unit),
+            outputDir: outputDir ?? undefined,
+            imageFormat: imageFormat === 'auto' ? undefined : imageFormat,
+            stripMetadata,
+            videoCodec
+          }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setJobs((js) => js.map((j) => (j.id === next.id ? { ...j, status: 'running' } : j)))
     window.api.compress(next.id, next.file.path, options)
-  }, [jobs, target, outputDir, imageFormat, stripMetadata, videoCodec])
+  }, [jobs, mode, target, outputDir, imageFormat, stripMetadata, videoCodec])
 
-  const targetBytes = toBytes(target.value, target.unit)
+  const targetBytes = mode === 'target' ? toBytes(target.value, target.unit) : null
   const queued = jobs.filter((j) => j.status === 'queued').length
   const busy = jobs.some((j) => j.status === 'running')
 
@@ -145,7 +151,17 @@ export default function App(): React.JSX.Element {
       </header>
 
       <section className="panel">
-        <TargetSizeInput value={target} onChange={setTarget} />
+        <ModePicker value={mode} onChange={setMode} />
+        {mode === 'target' ? (
+          <TargetSizeInput value={target} onChange={setTarget} />
+        ) : (
+          <div className="squeeze-note" role="note">
+            <strong>⏳ Heads up: this one is slow.</strong> Max Squeeze makes the smallest file it
+            can that still looks good. Videos can take <strong>up to 10 minutes each</strong> — it
+            never runs longer than that, and you can cancel anytime. Pictures take seconds. Output
+            is H.265 MP4 for video and WebP for pictures.
+          </div>
+        )}
         <button className="link" onClick={() => setShowOptions((s) => !s)}>
           {showOptions ? 'Hide options' : 'More options'}
         </button>
@@ -163,28 +179,32 @@ export default function App(): React.JSX.Element {
                 {outputDir && <button onClick={() => setOutputDir(null)}>Reset</button>}
               </div>
             </label>
-            <label>
-              Image format
-              <select
-                value={imageFormat}
-                onChange={(e) => setImageFormat(e.target.value as ImageFormatChoice)}
-              >
-                <option value="auto">Auto (JPEG, WebP if transparent)</option>
-                <option value="jpeg">JPEG</option>
-                <option value="webp">WebP</option>
-                <option value="png">PNG (lossless colours, limited shrink)</option>
-              </select>
-            </label>
-            <label>
-              Video codec
-              <select
-                value={videoCodec}
-                onChange={(e) => setVideoCodec(e.target.value as 'h264' | 'h265')}
-              >
-                <option value="h264">H.264 (plays everywhere)</option>
-                <option value="h265">H.265 (smaller, slower, less compatible)</option>
-              </select>
-            </label>
+            {mode === 'target' && (
+              <>
+                <label>
+                  Image format
+                  <select
+                    value={imageFormat}
+                    onChange={(e) => setImageFormat(e.target.value as ImageFormatChoice)}
+                  >
+                    <option value="auto">Auto (JPEG, WebP if transparent)</option>
+                    <option value="jpeg">JPEG</option>
+                    <option value="webp">WebP</option>
+                    <option value="png">PNG (lossless colours, limited shrink)</option>
+                  </select>
+                </label>
+                <label>
+                  Video codec
+                  <select
+                    value={videoCodec}
+                    onChange={(e) => setVideoCodec(e.target.value as 'h264' | 'h265')}
+                  >
+                    <option value="h264">H.264 (plays everywhere)</option>
+                    <option value="h265">H.265 (smaller, slower, less compatible)</option>
+                  </select>
+                </label>
+              </>
+            )}
             <label className="check">
               <input
                 type="checkbox"
@@ -203,7 +223,8 @@ export default function App(): React.JSX.Element {
         <section className="jobs">
           <div className="jobs-head">
             <span>
-              {jobs.length} file{jobs.length === 1 ? '' : 's'} · target {fmtBytes(targetBytes)}
+              {jobs.length} file{jobs.length === 1 ? '' : 's'} ·{' '}
+              {targetBytes !== null ? `target ${fmtBytes(targetBytes)}` : 'Max Squeeze'}
               {busy && ' · working…'}
               {!busy && queued > 0 && ` · ${queued} queued`}
             </span>

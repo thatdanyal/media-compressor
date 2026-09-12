@@ -1,8 +1,12 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 
+export type Mode = 'target' | 'squeeze'
+
 export interface CompressOptions {
-  targetBytes: number
+  mode?: Mode
+  targetBytes?: number
+  timeBudgetMs?: number
   outputDir?: string
   imageFormat?: 'jpeg' | 'webp' | 'png'
   stripMetadata?: boolean

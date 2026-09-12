@@ -1,4 +1,4 @@
-// Dev harness: npm run try -- <file> <size like 8MB|500KB> [outputDir]
+// Dev harness: npm run try -- <file> <size like 8MB|500KB | squeeze[:minutes]> [outputDir]
 // Exercises the compression engine without Electron.
 import { CancelToken, compressFile } from '../src/main/compress'
 
@@ -17,14 +17,16 @@ async function main(): Promise<void> {
     console.error('usage: npm run try -- <file> <8MB|500KB> [outputDir]')
     process.exit(2)
   }
-  const targetBytes = parseSize(size)
+  const squeeze = /^squeeze(:[\d.]+)?$/i.exec(size)
+  const targetBytes = squeeze ? 0 : parseSize(size)
+  const timeBudgetMs = squeeze?.[1] ? Number(squeeze[1].slice(1)) * 60_000 : undefined
   const cancel = new CancelToken()
   process.on('SIGINT', () => cancel.cancel())
   let lastStage = ''
   const t0 = Date.now()
   const res = await compressFile(
     file,
-    { targetBytes, outputDir },
+    squeeze ? { mode: 'squeeze', timeBudgetMs, outputDir } : { targetBytes, outputDir },
     (f, stage) => {
       const line = `${(f * 100).toFixed(0).padStart(3)}% ${stage ?? ''}`
       if (stage !== lastStage || f >= 1) {
@@ -36,10 +38,10 @@ async function main(): Promise<void> {
   )
   const secs = ((Date.now() - t0) / 1000).toFixed(1)
   console.log(`\n${res.outputPath}`)
-  console.log(
-    `${fmt(res.inputBytes)} -> ${fmt(res.outputBytes)} (target ${fmt(targetBytes)}) ` +
-      `${res.outputBytes <= targetBytes ? 'OK' : 'OVER'} in ${secs}s`
-  )
+  const verdict = squeeze
+    ? `(-${Math.round((1 - res.outputBytes / res.inputBytes) * 100)}%)`
+    : `(target ${fmt(targetBytes)}) ${res.outputBytes <= targetBytes ? 'OK' : 'OVER'}`
+  console.log(`${fmt(res.inputBytes)} -> ${fmt(res.outputBytes)} ${verdict} in ${secs}s`)
   if (res.notes.length) console.log('notes:', res.notes.join('; '))
 }
 
