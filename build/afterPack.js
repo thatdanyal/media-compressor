@@ -10,7 +10,12 @@ exports.default = async function afterPack(context) {
   const arch = ARCH_NAMES[context.arch] ?? String(context.arch)
   const resources =
     platform === 'darwin'
-      ? path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`, 'Contents', 'Resources')
+      ? path.join(
+          context.appOutDir,
+          `${context.packager.appInfo.productFilename}.app`,
+          'Contents',
+          'Resources'
+        )
       : path.join(context.appOutDir, 'resources')
   const bin = path.join(resources, 'app.asar.unpacked', 'node_modules', 'ffprobe-static', 'bin')
   if (!fs.existsSync(bin)) return
