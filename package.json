@@ -1,6 +1,6 @@
 {
   "name": "media-compressor",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Compress videos and pictures to an exact target file size",
   "main": "./out/main/index.js",
   "author": "Danyal",
