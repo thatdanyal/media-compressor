@@ -1,0 +1,51 @@
+name: Release
+
+# Builds installers for Windows, macOS and Linux whenever a version tag is pushed,
+# uploads them (plus the latest*.yml manifests electron-updater reads) to a draft
+# GitHub Release, then publishes the release once all three platforms succeed.
+#
+# Release routine:   npm version patch && git push --follow-tags
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and lint
+        run: npm run typecheck && npm run lint
+
+      - name: Build and publish
+        # --publish always uploads to a draft release named after the tag.
+        run: npx electron-vite build && npx electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft=false --latest

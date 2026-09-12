@@ -1,0 +1,58 @@
+appId: com.danyal.mediacompressor
+productName: Media Compressor
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!scripts/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+# Native binaries can't be executed from inside the asar archive.
+asarUnpack:
+  - resources/**
+  - node_modules/ffmpeg-static/**
+  - node_modules/ffprobe-static/**
+  - node_modules/sharp/**
+  - node_modules/@img/**
+win:
+  executableName: media-compressor
+  target:
+    - nsis
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+mac:
+  target:
+    - target: dmg
+    - target: zip
+  entitlementsInherit: build/entitlements.mac.plist
+  # Unsigned: users must right-click > Open the first time. Auto-update on macOS
+  # needs a paid Apple Developer certificate; set CSC_LINK/CSC_KEY_PASSWORD in CI
+  # and remove `identity: null` when you have one.
+  identity: null
+  notarize: false
+  extendInfo:
+    - NSDocumentsFolderUsageDescription: Media Compressor reads the files you choose to compress.
+    - NSDownloadsFolderUsageDescription: Media Compressor reads the files you choose to compress.
+dmg:
+  artifactName: ${name}-${version}-${arch}.${ext}
+linux:
+  target:
+    - AppImage
+  maintainer: Danyal
+  category: AudioVideo
+appImage:
+  artifactName: ${name}-${version}.${ext}
+npmRebuild: false
+publish:
+  provider: github
+  owner: thatdanyal
+  repo: media-compressor
+  releaseType: draft
