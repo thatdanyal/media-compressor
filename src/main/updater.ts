@@ -47,7 +47,8 @@ export function setupUpdater(): void {
       broadcast({ type: 'error', message: (err as Error).message })
     }
   })
-  ipcMain.handle('update:install', () => autoUpdater.quitAndInstall())
+  // isSilent=true: run the NSIS installer without the wizard; forceRunAfter=true: relaunch.
+  ipcMain.handle('update:install', () => autoUpdater.quitAndInstall(true, true))
   ipcMain.handle('app:version', () => app.getVersion())
 
   // Only check in packaged builds; a dev build has no update feed to compare against.
