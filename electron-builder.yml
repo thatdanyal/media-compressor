@@ -4,12 +4,13 @@ directories:
   buildResources: build
 files:
   - '!**/.vscode/*'
-  - '!src/*'
-  - '!scripts/*'
+  - '!{.git,.github,dist,src,scripts}/**'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+# ffprobe-static ships binaries for every OS; this hook deletes the ones we don't run.
+afterPack: build/afterPack.js
 # Native binaries can't be executed from inside the asar archive.
 asarUnpack:
   - resources/**
