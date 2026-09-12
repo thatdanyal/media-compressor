@@ -32,7 +32,9 @@ nsis:
 mac:
   target:
     - target: dmg
+      arch: [x64, arm64]
     - target: zip
+      arch: [x64, arm64]
   entitlementsInherit: build/entitlements.mac.plist
   # Unsigned: users must right-click > Open the first time. Auto-update on macOS
   # needs a paid Apple Developer certificate; set CSC_LINK/CSC_KEY_PASSWORD in CI
